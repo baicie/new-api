@@ -1,0 +1,52 @@
+# 服务器侧「镜像型」compose：服务器上不构建，只拉 GHCR 上已发布的镜像。
+#
+# 这是发布产物，不要手改：.github/workflows/build-and-push.yml 在打 v* 标签时
+# 把它上传到 ${DEPLOY_DIR}/docker-compose.deploy.yml（默认 ~/new-api），再以
+#   docker compose -f docker-compose.deploy.yml up -d --pull never
+# 启动——镜像已由工作流按 digest 拉到本机并打好 tag，所以这里不许 compose 自己再去拉。
+#
+# 与仓库根目录 docker-compose.yml 的区别：那份用 calciumion/new-api 镜像外加
+# postgres/redis（可选 mysql、clickhouse）全套依赖，供本地与体验环境一把起；
+# 这份是单容器 + 内置 SQLite 的生产发布形态，数据只落在 ./data 里。
+#
+# 所有变量都带默认值，一个都不设也能 `docker compose config` 通过；要覆盖时写在
+# 同目录的 .env 里，compose 会自动读取该文件做插值。
+
+services:
+  new-api:
+    image: ${IMAGE_REPO:-ghcr.io/baicie/new-api}:${IMAGE_TAG:-latest}
+    container_name: ${CONTAINER_NAME:-new-api}
+    restart: unless-stopped
+    # 默认沿用镜像的 root（uid/gid 0）：SQLite 库与日志直接写在挂载点上，少一层
+    # 权限摩擦。设 PUID/PGID 降权时，必须先把 ./data ./logs 在宿主机 chown 到同一个
+    # uid:gid（首次部署由工作流按 PUID/PGID 自动完成），否则无法建库、写不了日志。
+    user: "${PUID:-0}:${PGID:-0}"
+    command: --log-dir /app/logs
+    ports:
+      # 容器内固定 3000；宿主端口交给 .env 决定，方便同一台机器上跑多套。
+      - "${HOST_PORT:-3001}:3000"
+    volumes:
+      # SQLite 落在 /data/one-api.db（镜像的 WORKDIR 也是 /data）。
+      - ./data:/data
+      - ./logs:/app/logs
+    environment:
+      - TZ=Asia/Shanghai
+      # 为空时进程内随机生成：重启后所有登录会话失效。首次部署由工作流在同目录
+      # .env 里写入随机值持久化，之后每次 up 都复用这个文件。
+      - SESSION_SECRET=${SESSION_SECRET:-}
+      # 审计日志里标识节点身份；多节点部署时给每个节点改成不同的名字。
+      - NODE_NAME=${NODE_NAME:-new-api}
+      - ERROR_LOG_ENABLED=true
+      - BATCH_UPDATE_ENABLED=true
+      # 默认用内置 SQLite。改接外部数据库时取消注释并填真实值（不要提交进仓库）：
+      # - SQL_DSN=postgresql://USER:PASSWORD@host:5432/new-api
+      # - LOG_SQL_DSN=postgresql://USER:PASSWORD@host:5432/new-api-log
+      # 用 MySQL 时形如 USER:PASSWORD@tcp(host:3306)/new-api。
+    healthcheck:
+      # 镜像自带 wget；探 /api/status，在响应里找 "success": true。
+      test: ["CMD-SHELL", "wget -q -O - http://127.0.0.1:3000/api/status | grep -o '\"success\":\\s*true' || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      # 首次启动要跑建表与索引检查，给足冷启动时间，别刚起来就被判不健康。
+      start_period: 20s
