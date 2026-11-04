@@ -38,6 +38,12 @@ services:
       - NODE_NAME=${NODE_NAME:-new-api}
       - ERROR_LOG_ENABLED=true
       - BATCH_UPDATE_ENABLED=true
+      # HTTPS 上线后开启：Secure refresh cookie + 严格的 refresh/logout Origin 校验。
+      # 真实值写在同目录 .env（示例 SESSION_COOKIE_SECURE=true、
+      # SESSION_COOKIE_TRUSTED_URL=https://newapi.moonbyte.top），不设置时为空 = 关闭，
+      # 纯 HTTP 环境照常可用。TRUSTED_URL 必须是精确的 https Origin，不支持通配符/路径。
+      - SESSION_COOKIE_SECURE=${SESSION_COOKIE_SECURE:-}
+      - SESSION_COOKIE_TRUSTED_URL=${SESSION_COOKIE_TRUSTED_URL:-}
       # 默认用内置 SQLite。改接外部数据库时取消注释并填真实值（不要提交进仓库）：
       # - SQL_DSN=postgresql://USER:PASSWORD@host:5432/new-api
       # - LOG_SQL_DSN=postgresql://USER:PASSWORD@host:5432/new-api-log
