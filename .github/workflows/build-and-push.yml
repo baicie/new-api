@@ -315,7 +315,11 @@ jobs:
           set -euo pipefail
           IMAGE="$1"; TAG="$2"; DIGEST="$3"; CONTAINER="$4"; RAW_DIR="$5"; HEALTH="$6"
           MIRRORS="$7"; HOST_PORT="$8"; PUID="$9"; PGID="${10}"
-          GHCR_USER="${11}"
+          # 可选参数必须放在**最后**并用 :- 兜底：ssh 只是把 'bash -s' 之后的参数用空格
+          # 拼成**一个字符串**交给远端 shell，不做引号转义；GHCR_USER 未配置时是空串，
+          # 拼进去就塌缩掉了，远端只收到 10 个参数，set -u 下 "${11}" 直接 unbound，
+          # 整段脚本在第 4 行退出、一条 docker 命令都没执行（run 41765632265 的真实故障）。
+          GHCR_USER="${11:-}"
           # token 由 GitHub 在渲染 run: 时替换进这段脚本，随 stdin 抵达远端，不进 argv；
           # 外层是 <<'REMOTE' 引号 heredoc，runner 侧 shell 不展开，故内联值保持字面量。
           # 远端用单引号接收，bash 不再做变量/命令展开。
