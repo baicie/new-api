@@ -24,7 +24,10 @@ services:
     command: --log-dir /app/logs
     ports:
       # 容器内固定 3000；宿主端口交给 .env 决定，方便同一台机器上跑多套。
-      - "${HOST_PORT:-3001}:3000"
+      # 只绑回环：对外统一走前置 Caddy（https://newapi.moonbyte.top），
+      # 否则明文端口会绕过 TLS 直接暴露在公网。若需要临时直连调试，
+      # 把下面这行改回 "${HOST_PORT:-3001}:3000" 再 up -d 即可。
+      - "127.0.0.1:${HOST_PORT:-3001}:3000"
     volumes:
       # SQLite 落在 /data/one-api.db（镜像的 WORKDIR 也是 /data）。
       - ./data:/data
