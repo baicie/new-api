@@ -41,6 +41,11 @@ services:
       - NODE_NAME=${NODE_NAME:-new-api}
       - ERROR_LOG_ENABLED=true
       - BATCH_UPDATE_ENABLED=true
+      # 登录会话上限。留空用内置默认（活跃 50 / 24 小时内新签发 100）；要放开就把
+      # 真实值写在同目录 .env，例如 USER_SESSION_ACTIVE_LIMIT=10000。
+      # 两个都是"每用户"口径，且必须是正整数，写 0 或负数会回落到默认值。
+      - USER_SESSION_ACTIVE_LIMIT=${USER_SESSION_ACTIVE_LIMIT:-}
+      - USER_SESSION_ISSUANCE_LIMIT=${USER_SESSION_ISSUANCE_LIMIT:-}
       # HTTPS 上线后开启：Secure refresh cookie + 严格的 refresh/logout Origin 校验。
       # 真实值写在同目录 .env（示例 SESSION_COOKIE_SECURE=true、
       # SESSION_COOKIE_TRUSTED_URL=https://newapi.moonbyte.top），不设置时为空 = 关闭，
