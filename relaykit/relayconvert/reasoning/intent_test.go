@@ -273,3 +273,20 @@ func TestOpenAIPivotExplicitEffortOverridesPivotWithDiagnostic(t *testing.T) {
 	assert.Equal(t, EffortXHigh, got.Effort)
 	assert.Equal(t, []string{"explicit_fields_conflict"}, diagnosticCodes(diagnostics))
 }
+
+func TestApplyToOpenAIChatOmitsDisabledEffort(t *testing.T) {
+	t.Parallel()
+
+	// thinking:{type:"disabled"} 归一到 ModeDisabled；"none" 这个拼写没有任何
+	// OpenAI 方言接受，必须省略字段而不是原样下发。
+	req := &dto.GeneralOpenAIRequest{}
+	require.NoError(t, ApplyToOpenAIChat(req, Intent{Mode: ModeDisabled, Effort: EffortNone, Source: SourceNative}))
+	assert.Empty(t, req.ReasoningEffort)
+	require.NotNil(t, req.ReasoningConversion)
+	assert.Equal(t, string(ModeDisabled), req.ReasoningConversion.Mode)
+
+	// 其余档位照常下发，不能被上面的省略顺手吞掉。
+	req = &dto.GeneralOpenAIRequest{}
+	require.NoError(t, ApplyToOpenAIChat(req, Intent{Mode: ModeEnabled, Effort: EffortHigh, Source: SourceNative}))
+	assert.Equal(t, "high", req.ReasoningEffort)
+}

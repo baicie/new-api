@@ -458,7 +458,12 @@ func ApplyToOpenAIChat(req *dto.GeneralOpenAIRequest, intent Intent) error {
 		return err
 	}
 
-	if effort := EffectiveEffort(intent); effort != "" {
+	// EffortNone is spelled "none" here, but that is the only spelling no
+	// OpenAI-dialect provider accepts (strict upstreams answer "Invalid option:
+	// expected one of off|low|medium|high|xhigh|max"). "No reasoning" is the
+	// default of an absent field everywhere, so omit it and let
+	// ReasoningConversion below carry the disabled intent.
+	if effort := EffectiveEffort(intent); effort != "" && effort != EffortNone {
 		req.ReasoningEffort = string(effort)
 	}
 
